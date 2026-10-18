@@ -9,6 +9,7 @@ import { createMockup } from '../mockup'
 import { genInfoOf, regenerate, remix } from '../generate'
 import { originalOf, restoreOriginal } from '../imageOps'
 import { errorText } from '../jobs'
+import { installedModels, modelCapability, modelStatusAtom } from '../models'
 import { TEXT, type TextShape } from '../shapes/TextShape'
 import { vectorize } from '../vectorize'
 import { exportAtom } from './ExportDialog'
@@ -118,6 +119,7 @@ export function ImageToolbar({ onError }: { onError: (msg: string) => void }) {
   const [inMore, setInMore] = useState<string | null>(null)
   const [customize, setCustomize] = useState(false)
   const prefs = useValue(prefsAtom)
+  useValue(modelStatusAtom)
 
   useLayoutEffect(() => {
     if (bar.current) setWidth(bar.current.offsetWidth)
@@ -183,8 +185,8 @@ export function ImageToolbar({ onError }: { onError: (msg: string) => void }) {
     { id: 'cutout', icon: Icons.cutout, label: t('common.removeBackground'), run: () => actions.cutout(editor, shape, onError) },
     { id: 'erase', icon: Icons.erase, label: t('common.eraser'), run: mode$('erase') },
     { id: 'text', icon: Icons.text, label: t('common.editText'), run: mode$('text') },
-    { id: 'angles', icon: Icons.angles, label: t('common.multiAngle'), run: mode$('angles') },
-    { id: 'animate', icon: Icons.animate, label: t('common.animateImage'), run: mode$('animate') },
+    { id: 'angles', icon: Icons.angles, label: t('common.multiAngle'), run: mode$('angles'), when: modelCapability('qwen-image-2.1-t2i.api.json', 'multiangle') },
+    { id: 'animate', icon: Icons.animate, label: t('common.animateImage'), run: mode$('animate'), when: modelCapability('t2v-minimax-h3.api.json', 'first_frame') },
     { id: 'expand', icon: Icons.expand, label: t('common.expand'), run: mode$('expand') },
     { id: 'inpaint', icon: Icons.lasso, label: t('common.inpaint'), run: mode$('inpaint') },
     { id: 'style', icon: Icons.effects, label: t('common.styleTransfer'), run: mode$('style') },
@@ -197,7 +199,7 @@ export function ImageToolbar({ onError }: { onError: (msg: string) => void }) {
     { id: 'vectorize', icon: Icons.polygon, label: t('imageToolbar.vectorize'), run: () => void vectorize(editor, shape).catch((e) => onError(String(e))) },
     { id: 'elements', icon: Icons.textTool, label: t('imageToolbar.editElements'), run: () => editElements(editor, shape, onError) },
     { id: 'mockup', icon: Icons.box, label: t('mockup.title'), run: () => createMockup(editor, shape, onError) },
-    { id: 'to3d', icon: Icons.cube, label: t('imageToolbar.imageTo3d'), run: () => imageTo3d(editor, shape, onError) },
+    { id: 'to3d', icon: Icons.cube, label: t('imageToolbar.imageTo3d'), run: () => imageTo3d(editor, shape, onError, installedModels('model')[0]?.id), when: installedModels('model').length > 0 },
     { id: 'transform', icon: Icons.rotate, label: t('imageToolbar.flipAndRotate'), menu: <TransformMenu editor={editor} shape={shape} /> },
     { id: 'regenerate', icon: Icons.replace, label: t('common.regenerate'), run: () => void regenerate(editor, shape, onError), when: !!genInfo?.prompt },
     { id: 'remix', icon: Icons.genImage, label: t('imageToolbar.remix'), run: () => remix(editor, shape), when: !!genInfo?.prompt },

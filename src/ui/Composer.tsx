@@ -61,13 +61,14 @@ function DirectPills({ editor, video }: { editor: Editor; video: boolean }) {
   const key = video ? 'video' : 'image'
   const settings = useValue('direct settings', () => directSettingsAtom.get()[key], [key])
   const models = useValue('direct models', () => installedModels(video), [video])
-  const workflow = settings.workflow || agentModels(video)[0].id
+  const workflow = settings.workflow || agentModels(video)[0]?.id || ''
   const p: GeneratorShape['props'] = { ...editor.getShapeUtil<GeneratorShapeUtil>(GENERATOR).getDefaultProps(), ratio: video ? VIDEO_RATIOS[0] : '1:1', ...settings, workflow }
-  const model = modelOf(workflow)!
+  const model = modelOf(workflow)
   const update = (patch: DirectSettings) => {
     const all = directSettingsAtom.get()
     directSettingsAtom.set({ ...all, [key]: { ...all[key], ...patch } })
   }
+  if (!model) return <span className="ca-chat__hint">{t('models.noneAvailable', video ? t('models.video') : t('models.image'))}</span>
   return (
     <>
       <SettingsPill p={p} video={video} quality={!!model.steps} update={update} />

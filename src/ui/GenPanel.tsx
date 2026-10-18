@@ -8,7 +8,7 @@ import { MAX_VIDEO_REF_KINDS } from '../workflows'
 import { DEFAULT_STRENGTH, modeOf, modesFor, refModeFor, refModesOf, refStrengthsOf, usableRefs } from '../refModes'
 import { errorText, jobOf } from '../jobs'
 import type { GeneratorShape } from '../shapes/GeneratorShape'
-import { installedModels, isVideo, modelOf } from '../models'
+import { installedModels, isInstalled, isVideo, modelOf, modelCapability, modelReferenceLimit, modelStatusAtom } from '../models'
 import { AssetGrid } from './AssetPicker'
 import { ColorPicker } from './ColorPicker'
 import { ModelPill, SettingsPill } from './GenSettings'
@@ -47,6 +47,7 @@ export function GenPanel({ onError }: { onError: (msg: string) => void }) {
   const uploadTo = useRef<Target>('ref')
   const models = useValue('gen models', () => installedModels(!!shape && isVideo(shape.props.workflow)), [shape?.props.workflow])
   const running = useValue('gen running', () => !!(shape && jobOf(editor.getShape(shape.id) ?? shape)), [editor, shape])
+  useValue(modelStatusAtom)
 
   useEffect(() => { prompt.current?.focus() }, [shape?.id])
 
@@ -61,9 +62,15 @@ export function GenPanel({ onError }: { onError: (msg: string) => void }) {
     editor.updateShape<GeneratorShape>({ id: shape.id, type: shape.type, props: next })
   }
   const video = isVideo(p.workflow)
+  const firstFrame = modelCapability(p.workflow, 'first_frame')
+  const motionControl = modelCapability(p.workflow, 'motion_control')
+  const lipSync = modelCapability(p.workflow, 'lip_sync')
+  const referenceCount = modelReferenceLimit(p.workflow, 'reference_images', MAX_VIDEO_REF_KINDS.image)
+    + modelReferenceLimit(p.workflow, 'reference_videos', MAX_VIDEO_REF_KINDS.video)
+    + modelReferenceLimit(p.workflow, 'reference_audios', MAX_VIDEO_REF_KINDS.audio)
   const refs = refsOf(shape)
   const vmode = video ? (Array.isArray(shape.meta.scenes) ? 'story' : videoModeOf(shape)) : null
-  const maxRefs = vmode === 'refs' ? Object.values(MAX_VIDEO_REF_KINDS).reduce((a, b) => a + b) : video ? 1 : MAX_REFS
+  const maxRefs = vmode === 'refs' ? referenceCount : video ? firstFrame ? 1 : 0 : MAX_REFS
   const motion = motionOf(shape)
   const speech = speechOf(shape)
   const modes = refModesOf(shape)
@@ -136,10 +143,11 @@ export function GenPanel({ onError }: { onError: (msg: string) => void }) {
 
   const story = video && Array.isArray(shape.meta.scenes)
   const scenes = scenesOf(shape)
-  const ready = story ? scenes.some((sc) => sc.prompt.trim()) && scenes.reduce((n, sc) => n + sc.duration, 0) <= MAX_STORY_SECONDS
+  const readyMode = !video || (story ? firstFrame : vmode === 'motion' ? motionControl : vmode === 'lipsync' ? lipSync : vmode === 'refs' ? referenceCount > 0 : !refs.length && !last || firstFrame)
+  const ready = isInstalled(p.workflow) && readyMode && (story ? scenes.some((sc) => sc.prompt.trim()) && scenes.reduce((n, sc) => n + sc.duration, 0) <= MAX_STORY_SECONDS
     : vmode === 'motion' ? !!(refs[0] && motion)
       : vmode === 'lipsync' ? !!(refs[0] && speech)
-        : !!p.prompt.trim()
+        : !!p.prompt.trim())
   const setScenes = (next: typeof scenes | null) => setMeta({ scenes: next })
   const smartSplit = async () => {
     setSmart(true)
@@ -228,19 +236,19 @@ export function GenPanel({ onError }: { onError: (msg: string) => void }) {
             )}
           </div>
         )}
-        {vmode === 'frames' && (last ? slot(last, t('genPanel.lastFrame'), () => setMeta({ lastFrame: null })) : imagePicker('last', t('genPanel.lastFrame')))}
-        {vmode === 'motion' && (motion ? slot(motion, t('genPanel.motionVideo'), () => setMeta({ motion: null })) : imagePicker('motion', t('genPanel.motionVideo')))}
-        {vmode === 'lipsync' && (speech ? slot(speech, t('genPanel.speechAudio'), () => setMeta({ speech: null })) : imagePicker('speech', t('genPanel.speechAudio')))}
+        {vmode === 'frames' && firstFrame && (last ? slot(last, t('genPanel.lastFrame'), () => setMeta({ lastFrame: null })) : imagePicker('last', t('genPanel.lastFrame')))}
+        {vmode === 'motion' && motionControl && (motion ? slot(motion, t('genPanel.motionVideo'), () => setMeta({ motion: null })) : imagePicker('motion', t('genPanel.motionVideo')))}
+        {vmode === 'lipsync' && lipSync && (speech ? slot(speech, t('genPanel.speechAudio'), () => setMeta({ speech: null })) : imagePicker('speech', t('genPanel.speechAudio')))}
         {!video && (base ? slot(base.src, t('genPanel.baseImage'), () => setMeta({ base: null })) : imagePicker('base', t('genPanel.baseImage')))}
         <input ref={file} type="file" accept="image/*" hidden onChange={(e) => { void upload(e.target.files).catch((err) => onError(String(err))); e.target.value = '' }} />
       </div>
       {video && (
         <div className="ca-panel__chips ca-gen__modes">
-          <button type="button" className="ca-panel__chip" data-on={vmode === 'frames' || undefined} onClick={() => setMeta({ scenes: null, videoMode: null, refs: firstImage })}>{t('genPanel.firstLastFrame')}</button>
-          <button type="button" className="ca-panel__chip" data-on={media || undefined} onClick={() => setMeta({ scenes: null, videoMode: 'refs', lastFrame: null })}>{t('genPanel.referenceToVideo')}</button>
-          <button type="button" className="ca-panel__chip" data-on={vmode === 'motion' || undefined} onClick={() => setMeta({ scenes: null, videoMode: 'motion', lastFrame: null, refs: firstImage })}>{t('genPanel.motionControl')}</button>
-          <button type="button" className="ca-panel__chip" data-on={vmode === 'lipsync' || undefined} onClick={() => setMeta({ scenes: null, videoMode: 'lipsync', lastFrame: null, refs: firstImage })}>{t('genPanel.lipSync')}</button>
-          <button type="button" className="ca-panel__chip" data-on={story || undefined} onClick={() => setMeta({ videoMode: null, scenes: scenes.length ? scenes : [{ prompt: p.prompt, duration: p.duration }] })}>{t('genPanel.storyboard')}</button>
+          <button type="button" className="ca-panel__chip" data-on={vmode === 'frames' || undefined} onClick={() => setMeta({ scenes: null, videoMode: null, refs: firstFrame ? firstImage : [], lastFrame: firstFrame ? last : null })}>{firstFrame ? t('genPanel.firstLastFrame') : t('dock.videoGeneration')}</button>
+          {referenceCount > 0 && <button type="button" className="ca-panel__chip" data-on={media || undefined} onClick={() => setMeta({ scenes: null, videoMode: 'refs', lastFrame: null })}>{t('genPanel.referenceToVideo')}</button>}
+          {motionControl && <button type="button" className="ca-panel__chip" data-on={vmode === 'motion' || undefined} onClick={() => setMeta({ scenes: null, videoMode: 'motion', lastFrame: null, refs: firstImage })}>{t('genPanel.motionControl')}</button>}
+          {lipSync && <button type="button" className="ca-panel__chip" data-on={vmode === 'lipsync' || undefined} onClick={() => setMeta({ scenes: null, videoMode: 'lipsync', lastFrame: null, refs: firstImage })}>{t('genPanel.lipSync')}</button>}
+          {firstFrame && <button type="button" className="ca-panel__chip" data-on={story || undefined} onClick={() => setMeta({ videoMode: null, scenes: scenes.length ? scenes : [{ prompt: p.prompt, duration: p.duration }] })}>{t('genPanel.storyboard')}</button>}
         </div>
       )}
       {base && !video && (

@@ -4,7 +4,7 @@ import { loadWorkflow, mediaMeta, refKind, uploadImage, viewUrl, type RefKind } 
 import { ask, stripThink } from './llm'
 import { spawnHolder, startJob, type ErrorSink, type GenInfo } from './jobs'
 import { GENERATOR, type GeneratorShape } from './shapes/GeneratorShape'
-import { agentModels, isVideo, modelOf } from './models'
+import { agentModels, isVideo, modelOf, modelCapability, modelReferenceLimit, requireModel } from './models'
 import { applyRefs, PALETTE_MODE, refHints, refModesOf, refStrengthsOf, usableRefs } from './refModes'
 import { paletteImage, palettePrompt } from './palette'
 import { annotated, imageToVideoGraph, lipSyncGraph, MAX_VIDEO_REF_KINDS, motionGraph, r2vGraph, storyboardGraph, t2vGraph, VIDEO_AREAS, videoSize, type Built, type Scene } from './workflows'
@@ -86,7 +86,7 @@ export function freeSpot(editor: Editor, w: number, h: number): [number, number]
 export function createGenerator(editor: Editor, video = false, props: Partial<GeneratorShape['props']> = {}, focus = true): TLShapeId {
   const id = createShapeId()
   const ratio = props.ratio ?? (video ? VIDEO_RATIOS[0] : '1:1')
-  const workflow = props.workflow || agentModels(video)[0].id
+  const workflow = requireModel(video ? 'video' : 'image', props.workflow || undefined).id
   const [w, h] = targetSize({ ...editor.getShapeUtil<GeneratorShape>(GENERATOR).getDefaultProps(), ...props, ratio, workflow })
   const [x, y] = freeSpot(editor, w, h)
   editor.createShape({ id, type: GENERATOR, x, y, props: { ...props, w, h, ratio, workflow } })
@@ -128,6 +128,7 @@ async function caption(spec: string, prompt: string, width: number, height: numb
 
 async function generateGraph(shape: GeneratorShape): Promise<Built> {
   const { ratio, count, workflow, duration, transparent, quality, style } = shape.props
+  requireModel(isVideo(workflow) ? 'video' : 'image', workflow)
   const suffix = (isVideo(workflow) ? SHOTS : STYLES).find(([k]) => k === style)?.[2]
   const refs = refsOf(shape)
   const model = isVideo(workflow) ? null : modelOf(workflow) ?? agentModels(false)[0]
@@ -145,20 +146,35 @@ async function generateGraph(shape: GeneratorShape): Promise<Built> {
   ].filter(Boolean).join(' ')
   if (isVideo(workflow)) {
     const scenes = scenesOf(shape).filter((sc) => sc.prompt.trim())
+    const requireFeature = (feature: string) => {
+      if (!modelCapability(workflow, feature)) throw new Error(t('models.unavailableFeature', feature))
+    }
     if (scenes.length) {
+      requireFeature('first_frame')
       return storyboardGraph(scenes.map((sc) => ({ ...sc, prompt: [sc.prompt, suffix].filter(Boolean).join(', ') })), ratioOf(ratio), refs[0] ? annotated(refs[0]) : null)
     }
     const area = VIDEO_AREAS[shape.props.resolution] ?? VIDEO_AREAS['768p']
     const mode = videoModeOf(shape)
-    if (mode === 'refs' && refs.length) return r2vGraph(refs.map((src) => ({ file: annotated(src), kind: refKind(src) })), prompt, ratioOf(ratio), duration, area)
+    if (mode === 'refs' && refs.length) {
+      for (const kind of ['image', 'video', 'audio'] as const) {
+        const limit = modelReferenceLimit(workflow, `reference_${kind}s`, MAX_VIDEO_REF_KINDS[kind])
+        if (refs.filter((src) => refKind(src) === kind).length > limit) throw new Error(t('models.unavailableFeature', `reference_${kind}s`))
+      }
+      return r2vGraph(refs.map((src) => ({ file: annotated(src), kind: refKind(src) })), prompt, ratioOf(ratio), duration, area)
+    }
     const motion = motionOf(shape)
-    if (mode === 'motion' && refs[0] && motion) return motionGraph(annotated(refs[0]), annotated(motion), prompt, ratioOf(ratio), duration, area)
+    if (mode === 'motion' && refs[0] && motion) {
+      requireFeature('motion_control')
+      return motionGraph(annotated(refs[0]), annotated(motion), prompt, ratioOf(ratio), duration, area)
+    }
     const speech = speechOf(shape)
     if (mode === 'lipsync' && refs[0] && speech) {
+      requireFeature('lip_sync')
       const { seconds } = await mediaMeta(speech, 'audio')
       return lipSyncGraph(annotated(refs[0]), annotated(speech), prompt, ratioOf(ratio), Math.min(seconds, MAX_SPEECH_SECONDS), area)
     }
     const last = lastFrameOf(shape)
+    if (refs.length || last) requireFeature('first_frame')
     return refs.length || last
       ? imageToVideoGraph(refs[0] ? annotated(refs[0]) : null, prompt, ratioOf(ratio), duration, last ? annotated(last) : null, area)
       : t2vGraph(prompt, ratioOf(ratio), duration, area)

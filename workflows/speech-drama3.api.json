@@ -1,0 +1,7 @@
+{
+  "1": { "class_type": "Drama3Loader", "inputs": { "model_name": "drama3_fp8experts_bf16.safetensors", "experts": "in VRAM", "expert_cache_gb": 0, "second_gpu": "none", "split_layer": 0 } },
+  "2": { "class_type": "Drama3CodecLoader", "inputs": { "codec_name": "drama3_codec.safetensors" } },
+  "3": { "class_type": "Drama3Generate", "inputs": { "model": ["1", 0], "text": "", "voices": {}, "seed": 0, "temperature": 1, "top_p": 0.9, "top_k": 30, "max_frames": 600, "split_long_text": true } },
+  "4": { "class_type": "Drama3Decode", "inputs": { "codec": ["2", 0], "codes": ["3", 0] } },
+  "5": { "class_type": "SaveAudioAdvanced", "inputs": { "audio": ["4", 0], "filename_prefix": "comfyart/speech", "format": "flac" } }
+}
