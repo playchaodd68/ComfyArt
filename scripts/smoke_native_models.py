@@ -12,6 +12,7 @@ from urllib.request import Request, urlopen
 
 PRESETS = {
     "qwen": ("qwen-image-2.1-t2i.api.json", "9", "image"),
+    "qwen-edit": ("edit-qwen-image-2.1.api.json", "9", "image"),
     "krea": ("krea2-turbo-t2i.api.json", "9", "image"),
     "h3": ("t2v-minimax-h3.api.json", "92", "video"),
     "speech": ("speech-drama3.api.json", "5", "audio"),
@@ -34,7 +35,7 @@ def main():
     parser.add_argument("kind", choices=PRESETS)
     parser.add_argument("--url", default="http://127.0.0.1:8288")
     parser.add_argument("--output", type=Path, default=Path(".audit/local-runtime/evidence"))
-    parser.add_argument("--input", help="Uploaded input filename for Trellis")
+    parser.add_argument("--input", help="Uploaded input filename for Trellis or Qwen editing")
     args = parser.parse_args()
     filename, result_node, kind = PRESETS[args.kind]
     root = Path(__file__).resolve().parents[1]
@@ -43,6 +44,12 @@ def main():
         graph["5"]["inputs"].update(width=512, height=512, batch_size=1)
         graph["6"]["inputs"]["prompt" if args.kind == "qwen" else "text"] = "A red ceramic teapot on a pale blue table, soft studio light, clean product photograph."
         graph["7"]["inputs"].update(seed=42, steps=12 if args.kind == "qwen" else 10)
+    elif args.kind == "qwen-edit":
+        if not args.input:
+            parser.error("--input is required for Qwen editing")
+        graph["11"]["inputs"]["image"] = args.input
+        graph["6"]["inputs"]["prompt"] = "Change the red teapot to blue. Keep its shape, background and lighting."
+        graph["7"]["inputs"].update(seed=42, steps=12)
     elif args.kind == "h3":
         graph["131"]["inputs"].update(prompt="A red ceramic teapot rests on a pale blue table. Steam gently rises from the spout, static camera. Quiet room tone.", width=864, height=480)
         graph["133"]["inputs"]["value"] = 5

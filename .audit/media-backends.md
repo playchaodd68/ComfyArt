@@ -1,5 +1,7 @@
 # Media backend evidence, 2026-10-18
 
+Completion update: the initially missing native YuE2 and Trellis2 files were downloaded from pinned official revisions and hash-verified. Existing BiRefNet was reused through a hard link. Native Drama3, YuE2 and Trellis2 generations completed successfully. See `acceptance.json` for output hashes and prompt IDs. The investigation below records the earlier baseline.
+
 Scope is the running ComfyUI at `http://127.0.0.1:8188`, rooted at `F:/Comfy/Installations/ComfyUI D/ComfyUI`. All availability statements below were checked against its live `/object_info`. No generation was submitted, no service restarted, and no model downloaded. This is schema and model-discovery verification, not media-generation acceptance.
 
 ## Files changed

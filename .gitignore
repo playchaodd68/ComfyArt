@@ -1,3 +1,8 @@
 node_modules/
 __pycache__/
 *.pyc
+.venv/
+.audit/local-runtime/
+.audit/*-snapshot.json
+.audit/*.log
+.audit/pr-body.md

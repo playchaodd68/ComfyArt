@@ -1,0 +1,98 @@
+{
+  "source_commit": "5cf1398",
+  "models": [
+    {
+      "kind": "qwen",
+      "prompt_id": "df638dae-aea2-4493-8abf-4c202276b85c",
+      "sha256": "d5c1326ec8cc474baeaa5a3d05f2d9444c31cc496e08dbca3321721d8b3a08b3",
+      "size": [
+        512,
+        512
+      ],
+      "validation": "real output, opened or fully decoded"
+    },
+    {
+      "kind": "krea",
+      "prompt_id": "25398545-d4b9-4351-8e97-349150ff2b9c",
+      "sha256": "51b185be746ac765122a1388f34df5d028095599f60a7348330a84432fd42a84",
+      "size": [
+        512,
+        512
+      ],
+      "validation": "real output, opened or fully decoded"
+    },
+    {
+      "kind": "h3",
+      "prompt_id": "11f0699f-bfd6-4c8d-ab9a-4649ff828969",
+      "sha256": "9e46eeffb75730e4a3307da7f14d8b4635325ac10c4eda40e7ed6f9fa8306c3c",
+      "streams": [
+        {
+          "codec_type": "video",
+          "codec_name": "h264",
+          "width": 864,
+          "height": 480,
+          "duration": "5.166667",
+          "nb_frames": "124"
+        },
+        {
+          "codec_type": "audio",
+          "codec_name": "aac",
+          "sample_rate": "32000",
+          "channels": 2,
+          "duration": "5.167000",
+          "nb_frames": "163"
+        }
+      ],
+      "validation": "real output, opened or fully decoded"
+    },
+    {
+      "kind": "speech",
+      "prompt_id": "8ed4ca31-19d7-4555-a5c4-55d7239ab71c",
+      "sha256": "fcb0798c11adb175b0f4cb0d1c181ec7649dca0170c8566c6ed3e0b8a3efe6fb",
+      "streams": [
+        {
+          "codec_type": "audio",
+          "codec_name": "flac",
+          "sample_rate": "44100",
+          "channels": 1,
+          "duration": "4.643991"
+        }
+      ],
+      "validation": "real output, opened or fully decoded"
+    },
+    {
+      "kind": "music",
+      "prompt_id": "0b16e7b0-842a-490b-9272-a67e48ab442a",
+      "sha256": "c92d719acd5afaeac3069619d201c972ab3f1a42f9954b66e98127c5358b0d88",
+      "streams": [
+        {
+          "codec_type": "audio",
+          "codec_name": "flac",
+          "sample_rate": "48000",
+          "channels": 2,
+          "duration": "15.000000"
+        }
+      ],
+      "validation": "real output, opened or fully decoded"
+    },
+    {
+      "kind": "trellis",
+      "prompt_id": "063feaf9-ec81-4018-ae3d-659ff1bd7a6d",
+      "sha256": "776ad0d7585afb00a4ec2b3f3a2615b3af318379805a16558949f9df8e5d531f",
+      "vertices": 100428,
+      "meshes": 1,
+      "validation": "real output, opened or fully decoded"
+    },
+    {
+      "kind": "qwen-edit",
+      "prompt_id": "cac97e89-8393-4d3b-a374-696c79d78f6f",
+      "sha256": "97b5b72dbeb82e13669fa89a011b9babe12f86ed06bf330786e52205a5bc9f6f",
+      "size": [
+        512,
+        512
+      ],
+      "validation": "live deployed Qwen edit: red teapot changed to blue, PNG decoded"
+    }
+  ],
+  "deployed_url": "http://127.0.0.1:8188/comfyart/"
+}

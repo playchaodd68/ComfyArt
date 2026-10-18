@@ -58,3 +58,13 @@ Independently re-read the Qwen/Krea graph, history and verified reports; checked
 These prove the saved smoke artifacts and successful backend runs, not all interactive UI paths or all resolutions. Speech was pending at inspection; missing future outputs are not code-review failures. The coordinator reports 171 passing pytest tests and a passing build; this review inspected the added tests without repeating those runs.
 
 Evidence housekeeping: `decisions.tsv` currently contains literal backslash-t sequences, so it is not yet a real tab-delimited audit trail. It has only the initial fork row. Earlier `media-backends.md` and download notes describe timestamped pre-download snapshots; append final results before handoff so those earlier missing-weight observations are not mistaken for current state. Neither point invalidates the verified PNG evidence.
+
+## Final narrow verification of commit 5cf1398
+
+**Verdict: no outstanding P1/P2 found in the reviewed code.** The remaining manual Image-to-3D issue is fixed at `src/ui/ImageToolbar.tsx:202`: the manual toolbar now passes `installedModels('model')[0]?.id` to `imageTo3d`, so `modelGraph` reaches the installed-only explicit-ID branch of `requireModel`. Agent invocations retain their separate enabled-model validation. This closes all findings from this review.
+
+Also inspected the final pinned range downloader changes and user documentation. No new P1/P2 found. Confirmed `decisions.tsv` now has 35 actual tab delimiters, no literal backslash-t delimiters, and appended implementation, verification and review rows.
+
+The speech and music verified reports and FLAC files now exist. Independently recomputed their file hashes and checked matching prompt IDs, resolved graphs and successful completed histories; all match. Recorded media durations are approximately 4.644 seconds for speech and 15 seconds for music. These additional checks did not queue or run generation. Qwen/Krea evidence checks from the preceding review remain valid.
+
+H3 and Trellis generation acceptance is still owned by the ongoing coordinator run and is outside this narrow code verdict. This review did not wait for those jobs, interpret pending output as a defect, or claim that their media is verified. At inspection, `.gitignore` was modified and `.audit/local-multimodal.todo.md` was untracked; the runtime source was committed in `5cf13984d3e35993717c559dbcd37d47db497945`.
