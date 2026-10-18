@@ -4,6 +4,17 @@ const POLL_MS = 1500
 
 export type PromptGraph = Record<string, { class_type: string; inputs: Record<string, unknown> }>
 
+export function parsePromptGraph(value: unknown): PromptGraph {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new Error('Invalid resolved workflow')
+  const graph: PromptGraph = {}
+  for (const [id, node] of Object.entries(value)) {
+    if (typeof node !== 'object' || node === null || !('class_type' in node) || typeof node.class_type !== 'string' ||
+      !('inputs' in node) || typeof node.inputs !== 'object' || node.inputs === null || Array.isArray(node.inputs)) throw new Error('Invalid resolved workflow node')
+    graph[id] = { class_type: node.class_type, inputs: { ...node.inputs } }
+  }
+  return graph
+}
+
 export interface ImageRef { filename: string; subfolder: string; type: string; metadata?: { width?: number; height?: number } }
 
 function comfyUser(): string | null {
@@ -105,18 +116,19 @@ export async function loadModelPaths(): Promise<Record<string, string>> {
   return modelPaths
 }
 
-function withModelPaths(prompt: PromptGraph): PromptGraph {
-  return Object.fromEntries(Object.entries(prompt).map(([id, node]) => [id, {
-    ...node,
-    inputs: Object.fromEntries(Object.entries(node.inputs).map(([k, v]) => [k, typeof v === 'string' && v in modelPaths ? modelPaths[v] : v])),
-  }]))
-}
-
 export async function queuePrompt(prompt: PromptGraph): Promise<string> {
+  const resolved = await fetch('/comfyart/resolve-workflow', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ graph: prompt }),
+  })
+  const resolution: unknown = await resolved.json()
+  if (typeof resolution !== 'object' || resolution === null) throw new Error('Invalid workflow response')
+  if (!resolved.ok) throw new Error('error' in resolution && typeof resolution.error === 'string' ? resolution.error : `workflow dependencies unavailable: ${resolved.status}`)
+  if (!('graph' in resolution)) throw new Error('Invalid workflow response')
+  const graph = parsePromptGraph(resolution.graph)
   const res = await api('/prompt', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt: withModelPaths(prompt), client_id: CLIENT_ID }),
+    body: JSON.stringify({ prompt: graph, client_id: CLIENT_ID }),
   })
   const body = await res.json()
   if (!res.ok) throw new Error(body?.error?.message ?? `queue failed: ${res.status}`)

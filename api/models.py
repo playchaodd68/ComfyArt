@@ -3,7 +3,8 @@ import os
 import folder_paths
 from aiohttp import web
 
-from ._common import routes
+from ._common import error, json_body, routes
+from .model_registry import catalog, resolve_graph
 
 
 def model_paths() -> dict[str, str]:
@@ -23,3 +24,23 @@ def model_paths() -> dict[str, str]:
 @routes.get("/comfyart/model-paths")
 async def get_model_paths(request: web.Request) -> web.Response:
     return web.json_response(model_paths())
+
+
+@routes.get("/comfyart/model-catalog")
+async def get_model_catalog(_request: web.Request) -> web.Response:
+    return web.json_response(catalog())
+
+
+@routes.post("/comfyart/resolve-workflow")
+async def resolve_workflow(request: web.Request) -> web.Response:
+    body = await json_body(request)
+    graph = body.get("graph")
+    if not isinstance(graph, dict) or not graph or len(graph) > 1000:
+        return error("graph must contain between 1 and 1000 nodes", 400)
+    try:
+        graph, bindings, missing = resolve_graph(graph)
+    except ValueError as exc:
+        return error(str(exc), 400)
+    if missing:
+        return web.json_response({"error": "; ".join(missing), "missing": missing}, status=400)
+    return web.json_response({"graph": graph, "bindings": bindings})

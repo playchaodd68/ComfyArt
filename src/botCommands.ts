@@ -11,7 +11,7 @@ import { MAX_VIDEO_REF_KINDS } from './workflows'
 import { type ErrorSink, errorText, fileSrc, jobOf, mediaAsset, resultsAtom } from './jobs'
 import { describeItem, itemImages, libraryAtom, linkedKit } from './library'
 import { correct, forget, memoryAtom, remember } from './memory'
-import { agentModels } from './models'
+import { agentModels, isInstalled, MODEL_GROUPS, modelCapability, modelReferenceLimit, modelMissing, modelStatusAtom, modelPrefsAtom, type ModelModality } from './models'
 import { buildSlides } from './slides'
 import { exportImage } from './shapes/ArtboardShape'
 import { COMMENT } from './shapes/CommentShape'
@@ -123,6 +123,11 @@ function refUrls(editor: Editor, refs: unknown): string[] {
   })
 }
 
+function agentModelId(group: ModelModality, id?: string): string | undefined {
+  if (id && !agentModels(group).some((model) => model.id === id)) throw new Error(`${id} is unavailable or disabled for the Agent; see list_models`)
+  return id
+}
+
 function startGenerator(editor: Editor, video: boolean, args: Args, onError: ErrorSink) {
   const models = agentModels(video)
   const wantsRefs = !video && Array.isArray(args.refs) && args.refs.length > 0
@@ -232,10 +237,20 @@ const HANDLERS: Record<string, Handler> = {
     const { blob, width, height } = await exportImage(editor, ids, { format: 'png', background: true, scale: Math.min(1, maxPx / Math.max(bounds.w, bounds.h)) })
     return { width, height, bounds: { x: Math.round(bounds.x), y: Math.round(bounds.y), width: Math.round(bounds.w), height: Math.round(bounds.h) }, png: await blobBase64(blob) }
   },
-  list_models: () => ({
-    image: agentModels(false).map((m) => ({ id: m.id, label: m.label, desc: m.desc, accepts_refs: !!m.refs, ratios: RATIOS })),
-    video: agentModels(true).map((m) => ({ id: m.id, label: m.label, desc: m.desc, accepts_first_frame: true, max_reference_images: MAX_VIDEO_REF_KINDS.image, max_reference_videos: MAX_VIDEO_REF_KINDS.video, max_reference_audios: MAX_VIDEO_REF_KINDS.audio, motion_control: true, lip_sync: true, ratios: VIDEO_RATIOS, durations: DURATIONS })),
-  }),
+  list_models: () => Object.fromEntries(Object.entries(MODEL_GROUPS).map(([modality, models]) => [modality, models.map((m) => ({
+    id: m.id, label: m.label, desc: m.desc, available: isInstalled(m.id), missing: isInstalled(m.id) ? [] : modelMissing(m.id),
+    enabled: modelPrefsAtom.get().auto || modelPrefsAtom.get().enabled.includes(m.id),
+    capabilities: modelStatusAtom.get().find((s) => s.id === m.id)?.capabilities ?? {},
+    ...(modality === 'image' ? { accepts_refs: !!m.refs, ratios: RATIOS } : {}),
+    ...(modality === 'video' ? {
+      accepts_first_frame: modelCapability(m.id, 'first_frame'),
+      max_reference_images: modelReferenceLimit(m.id, 'reference_images', MAX_VIDEO_REF_KINDS.image),
+      max_reference_videos: modelReferenceLimit(m.id, 'reference_videos', MAX_VIDEO_REF_KINDS.video),
+      max_reference_audios: modelReferenceLimit(m.id, 'reference_audios', MAX_VIDEO_REF_KINDS.audio),
+      motion_control: modelCapability(m.id, 'motion_control'), lip_sync: modelCapability(m.id, 'lip_sync'),
+      ratios: VIDEO_RATIOS, durations: DURATIONS,
+    } : {}),
+  }))])),
   brand_kits: (editor) => {
     const linked = linkedKit(editor.getDocumentSettings().meta.brandKit)
     return {
@@ -256,7 +271,10 @@ const HANDLERS: Record<string, Handler> = {
   expand_image: (editor, args, onError) => started(editor, actions.expand(editor, imageOf(editor, args.id),
     { l: Number(args.left) || 0, t: Number(args.top) || 0, r: Number(args.right) || 0, b: Number(args.bottom) || 0 }, String(args.prompt ?? ''), onError)),
   split_layers: (editor, args, onError) => started(editor, actions.splitLayers(editor, imageOf(editor, args.id), Math.min(8, Math.max(2, Number(args.layers) || 4)), String(args.prompt ?? ''), onError)),
-  change_angle: (editor, args, onError) => started(editor, actions.angles(editor, imageOf(editor, args.id), Number(args.horizontal) || 0, Number(args.vertical) || 0, Number(args.zoom) || 1, onError)),
+  change_angle: (editor, args, onError) => {
+    if (!modelCapability('qwen-image-2.1-t2i.api.json', 'multiangle')) throw new Error(t('models.unavailableFeature', 'multiangle'))
+    return started(editor, actions.angles(editor, imageOf(editor, args.id), Number(args.horizontal) || 0, Number(args.vertical) || 0, Number(args.zoom) || 1, onError))
+  },
   replace_text: (editor, args, onError) => started(editor, actions.editText(editor, imageOf(editor, args.id), [[String(args.from), String(args.to)]], onError)),
   edit_region: (editor, args, onError) => started(editor, actions.editRegion(editor, imageOf(editor, args.id), regionOf(args), String(args.prompt), onError)),
   erase_region: (editor, args, onError) => started(editor, actions.eraseRegion(editor, imageOf(editor, args.id), regionOf(args), onError)),
@@ -273,16 +291,16 @@ const HANDLERS: Record<string, Handler> = {
     return started(editor, actions.upscaleVideo(editor, videoOf(editor, args.id), long, onError))
   },
   remove_video_background: (editor, args, onError) => started(editor, actions.cutoutVideo(editor, videoOf(editor, args.id), onError)),
-  generate_music: (editor, args, onError) => started(editor, generateAudio(editor, { kind: 'music', prompt: String(args.prompt), lyrics: String(args.lyrics ?? ''), seconds: Math.min(240, Math.max(5, Number(args.duration) || 30)) }, onError, true)),
+  generate_music: (editor, args, onError) => started(editor, generateAudio(editor, { kind: 'music', model: agentModelId('music', args.model), prompt: String(args.prompt), lyrics: String(args.lyrics ?? ''), seconds: Math.min(240, Math.max(5, Number(args.duration) || 30)) }, onError, true)),
   generate_sound_effect: (editor, args, onError) => started(editor, generateAudio(editor, { kind: 'sfx', prompt: String(args.prompt), seconds: Math.min(47, Math.max(1, Number(args.duration) || 8)) }, onError, true)),
   text_to_speech: (editor, args, onError) => {
     if (args.reference) {
       const shape = shapeOf(editor, args.reference)
       if (shape.type !== AUDIO) throw new Error(`${shape.id} is not an audio shape`)
-      return started(editor, generateAudio(editor, { kind: 'clone', text: String(args.text), reference: fileSrc(editor, shape)! }, onError, true))
+      return started(editor, generateAudio(editor, { kind: 'clone', model: agentModelId('speech', args.model ?? (args.reference_transcript ? undefined : 'voice-clone-indextts.api.json')), text: String(args.text), reference: fileSrc(editor, shape)!, transcript: args.reference_transcript }, onError, true))
     }
     if (args.voice && !VOICES.includes(args.voice)) throw new Error(`voice must be one of ${VOICES.join(', ')}`)
-    return started(editor, generateAudio(editor, { kind: 'speech', text: String(args.text), voice: args.voice ?? VOICES[0] }, onError, true))
+    return started(editor, generateAudio(editor, { kind: 'speech', model: agentModelId('speech', args.model ?? (args.voice ? 'speech-kokoro.api.json' : undefined)), text: String(args.text), voice: args.voice ?? VOICES[0] }, onError, true))
   },
   edit_elements: (editor, args, onError) => started(editor, editElements(editor, imageOf(editor, args.id), onError)),
   create_mockup: (editor, args, onError) => started(editor, createMockup(editor, imageOf(editor, args.id), onError)),
@@ -301,7 +319,7 @@ const HANDLERS: Record<string, Handler> = {
     })
     return args.bake ? { image: await bakeToImage(editor, editor.getShape<MockupShape>(shape.id as MockupShape['id'])!) } : { updated: shape.id }
   },
-  image_to_3d: (editor, args, onError) => started(editor, imageTo3d(editor, imageOf(editor, args.id), onError)),
+  image_to_3d: (editor, args, onError) => started(editor, imageTo3d(editor, imageOf(editor, args.id), onError, agentModelId('model', args.model))),
   wait_generation: (editor, args) => waitResults(editor, (args.ids ?? []).map(String), Number(args.timeout_s) || 60),
   place_html: (editor, args) => {
     const id = placeHtml(editor, String(args.html), String(args.name ?? t('botCommands.webPage')))

@@ -1,0 +1,11 @@
+ts	phase	decision	why	evidence	result
+2026-10-18T11:40:00Z	frame	Forked upstream to playchaodd68/ComfyArt and cloned an isolated branch	Preserve the running plugin and make changes reviewable	https://github.com/playchaodd68/ComfyArt	fork verified
+2026-10-18T13:04:56.685296+00:00	audit	Record initial fork row timestamp as approximate	Initial row timestamp was entered manually; later timestamps come from UTC clock	gh repo view playchaodd68/ComfyArt	corrected timing provenance
+2026-10-18T13:04:56.685296+00:00	design	Resolve approved model variants on server by category and node schema	Avoid false installed flags and incompatible basename substitutions	api/model_registry.py	implemented
+2026-10-18T13:04:56.685296+00:00	verify	Generate and decode Qwen and Krea test images in an isolated server	Compilation alone does not show the native inference path works	.audit/local-runtime/evidence/qwen-verified.json; .audit/local-runtime/evidence/krea-verified.json	VERIFIED
+2026-10-18T13:04:56.685296+00:00	verify	Generate local Chinese speech through Drama3	Verify local audio output rather than provider discovery	.audit/local-runtime/evidence/speech-verified.json	VERIFIED
+2026-10-18T13:04:56.685296+00:00	review	Fix Agent preferences, cloning and enum validation findings	Keep manual controls usable and fail unsupported nodes before queuing	.audit/review-multimodal.md	171 tests passed
+2026-10-18T13:15:16.192453+00:00	verify	Complete native H3, YuE2 and Trellis2 generations	Require real decoded video/audio and a readable mesh	.audit/acceptance.json	VERIFIED
+2026-10-18T13:15:16.192453+00:00	deploy	Switch installed plugin to the user fork and restart via Desktop Manager	Keep a recoverable copy and preserve Desktop process ownership	F:/Comfy/Backups/ComfyArt-before-local-multimodal-20261018	live catalog verified
+2026-10-18T13:15:16.192453+00:00	verify	Run Qwen image edit through the final live installation	Validate actual deployed graph resolution instead of only staging	.audit/local-runtime/evidence/qwen-edit-verified.json	VERIFIED
+2026-10-18T13:15:16.192453+00:00	review	Resolve all reviewed P2 findings	Independent re-review found no remaining P1/P2	.audit/review-multimodal.md	VERIFIED

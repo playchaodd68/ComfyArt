@@ -53,8 +53,9 @@ SPECS: dict[str, dict] = {
         "see layout and results. max_px caps the long side (default 1024).",
         {"ids": _IDS, "max_px": {"type": "integer"}}),
     "list_models": _tool(
-        "Installed image and video models with ids, what they are good at, whether they accept "
-        "reference images, and supported ratios.", {}),
+        "Image, video, speech, music and 3D model ids, availability, missing dependencies, enabled "
+        "preferences and capabilities. Choose only available and enabled models. A listed node or "
+        "workflow does not mean its weights are installed.", {}),
     "brand_kits": _tool(
         "The user's brand kits and saved assets (characters, products): names, descriptions, colors "
         "with roles, fonts, logo and reference image URLs, and which kit this project is linked to.", {}),
@@ -155,18 +156,24 @@ SPECS: dict[str, dict] = {
     "generate_music": _tool(
         "Generate a piece of music as an audio element on the canvas. prompt: English style tags (genre, "
         "mood, instruments, tempo, vocal type). lyrics optional (use [verse]/[chorus] lines; omit for an "
-        "instrumental). duration in seconds (default 30). Returns ids for wait_generation.",
-        {"prompt": {"type": "string"}, "lyrics": {"type": "string"}, "duration": {"type": "integer"}},
+        "instrumental). duration in seconds (default 30). Optional model from list_models.music. "
+        "Returns ids for wait_generation.",
+        {"prompt": {"type": "string"}, "lyrics": {"type": "string"}, "duration": {"type": "integer"}, "model": {"type": "string"}},
         ["prompt"], approval="生成配乐"),
     "generate_sound_effect": _tool(
         "Generate a short sound effect (an audio element) from an English description. duration in "
         "seconds (default 8, max 47). Returns ids for wait_generation.",
         {"prompt": {"type": "string"}, "duration": {"type": "integer"}}, ["prompt"], approval="生成音效"),
     "text_to_speech": _tool(
-        "Read text aloud as an audio element. voice is a built-in voice id (zf_/zm_ Chinese female/male, "
-        "af_/am_ American, bf_/bm_ British, jf_/jm_ Japanese; default zf_xiaoxiao), or pass reference "
-        "(an audio shape id) to clone that recording's voice. Returns ids for wait_generation.",
-        {"text": {"type": "string"}, "voice": {"type": "string"}, "reference": _ID}, ["text"], approval="生成配音"),
+        "Read text aloud as an audio element. Optional model from list_models.speech. For Kokoro, voice "
+        "is a built-in voice id (zf_/zm_ Chinese female/male, af_/am_ American, bf_/bm_ British, "
+        "jf_/jm_ Japanese; default zf_xiaoxiao). An explicit voice without model selects Kokoro. Pass "
+        "reference (an audio shape id) to clone that recording's voice; without a model or transcript, "
+        "this retains the legacy IndexTTS choice. "
+        "For Drama3, text supports speaker and emotion tags; reference cloning also requires "
+        "reference_transcript with the exact words in the recording. Returns ids for wait_generation.",
+        {"text": {"type": "string"}, "voice": {"type": "string"}, "reference": _ID,
+         "model": {"type": "string"}, "reference_transcript": {"type": "string"}}, ["text"], approval="生成配音"),
     "edit_elements": _tool(
         "Turn the text inside an image shape into editable text: OCR finds each line, the text is erased "
         "from the picture, and a new artboard holds the clean background plus one editable text shape "
@@ -189,7 +196,7 @@ SPECS: dict[str, dict] = {
     "image_to_3d": _tool(
         "Turn an image shape (best: one object on a plain background) into a textured 3D model placed next "
         "to it. Takes a few minutes. Returns ids for wait_generation.",
-        {"id": _ID}, ["id"], approval="转 3D"),
+        {"id": _ID, "model": {"type": "string"}}, ["id"], approval="转 3D"),
     "place_html": _tool(
         "Place a web page on the canvas: html is one complete self-contained HTML document you wrote "
         "(inline CSS/JS, images by absolute URL). width/height in canvas units.",
